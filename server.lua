@@ -40,6 +40,18 @@ function CreateBackpack(source, backpackType, item)
     local config = Config.GetBackpackConfig(backpackType)
     if not config then return end
 
+    -- Vérifier si le joueur a déjà un sac équipé (si la limitation est activée)
+    if Config.OnlyOneBackpack then
+        local backpackTypes = Config.GetEquippedBackpackTypes()
+        for _, equippedType in ipairs(backpackTypes) do
+            local existingBackpack = Player.Functions.GetItemByName(equippedType)
+            if existingBackpack then
+                TriggerClientEvent('QBCore:Notify', src, Config.Messages.alreadyHaveBackpack, 'error')
+                return
+            end
+        end
+    end
+
     -- Déclencher l'animation côté client
     TriggerClientEvent('backpack:client:createBackpack', src, backpackType)
 end
@@ -178,3 +190,62 @@ QBCore.Functions.CreateCallback('backpack:server:hasBackpack', function(source, 
 
     cb(false, nil)
 end)
+
+-- ============================================
+-- SYSTÈME DE BLACKLIST D'ITEMS
+-- ============================================
+
+-- Hook pour empêcher les items blacklistés d'être mis dans le sac
+-- Compatible avec ox_inventory
+AddEventHandler('ox_inventory:swapItems', function(source, fromInventory, fromSlot, toInventory, toSlot, count)
+    -- Vérifier si la destination est un backpack (commence par 'backpack_')
+    if type(toInventory) == 'string' and string.find(toInventory, '^backpack_') then
+        local Player = QBCore.Functions.GetPlayer(source)
+        if not Player then return end
+
+        -- Récupérer l'item qu'on essaie de déplacer
+        local item = nil
+        if fromInventory == 'player' then
+            -- L'item vient de l'inventaire du joueur
+            item = Player.Functions.GetItemBySlot(fromSlot)
+        end
+
+        if item and Config.IsItemBlacklisted(item.name) then
+            -- Annuler le mouvement en notifiant le joueur
+            TriggerClientEvent('QBCore:Notify', source, Config.Messages.itemBlacklisted, 'error')
+            -- L'event ox_inventory permet de return false pour annuler
+            return false
+        end
+    end
+end)
+
+-- Alternative pour qb-inventory (si vous utilisez qb-inventory)
+-- Décommenter cette section si vous utilisez qb-inventory au lieu d'ox_inventory
+--[[
+RegisterNetEvent('inventory:server:SaveInventory', function(type, id)
+    if type == 'stash' and string.find(id, '^backpack_') then
+        local src = source
+        local Player = QBCore.Functions.GetPlayer(src)
+        if not Player then return end
+
+        -- Récupérer le contenu du stash
+        local stashItems = MySQL.Sync.fetchAll('SELECT items FROM stashitems WHERE stash = ?', {id})
+        if stashItems[1] then
+            local items = json.decode(stashItems[1].items)
+
+            -- Vérifier chaque item
+            for slot, item in pairs(items) do
+                if item and Config.IsItemBlacklisted(item.name) then
+                    -- Retirer l'item du stash et le rendre au joueur
+                    items[slot] = nil
+                    Player.Functions.AddItem(item.name, item.amount or 1, false, item.info)
+                    TriggerClientEvent('QBCore:Notify', src, Config.Messages.itemBlacklisted, 'error')
+                end
+            end
+
+            -- Sauvegarder le stash nettoyé
+            MySQL.Async.execute('UPDATE stashitems SET items = ? WHERE stash = ?', {json.encode(items), id})
+        end
+    end
+end)
+]]--
