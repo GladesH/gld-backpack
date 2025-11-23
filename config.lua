@@ -17,6 +17,35 @@ Config.CreationAnim = {
     anim = 'machinic_loop_mechandplayer'
 }
 
+-- Limitation : Un seul sac équipé à la fois
+Config.OnlyOneBackpack = true -- true = le joueur ne peut avoir qu'un seul sac équipé, false = plusieurs sacs possibles
+
+-- ============================================
+-- BLACKLIST D'ITEMS
+-- ============================================
+
+-- Items qui ne peuvent PAS être mis dans le sac
+-- Ajoutez ici les noms d'items que vous voulez bloquer
+Config.BlacklistedItems = {
+    -- Sacs à dos (évite de mettre un sac dans un sac)
+    'backpack_small',
+    'backpack_medium',
+    'backpack_large',
+    'backpack_small_equipped',
+    'backpack_medium_equipped',
+    'backpack_large_equipped',
+
+    -- Armes lourdes (exemples - à adapter selon votre serveur)
+    -- 'weapon_rpg',
+    -- 'weapon_minigun',
+
+    -- Véhicules (exemples - à adapter selon votre serveur)
+    -- 'vehicle_key',
+
+    -- Autres items que vous voulez bloquer
+    -- Ajoutez vos items ici...
+}
+
 -- ============================================
 -- CONFIGURATION DES SACS À DOS
 -- ============================================
@@ -98,7 +127,9 @@ Config.Messages = {
     -- Messages d'erreur
     invalidBackpack = 'Sac invalide',
     errorCreating = 'Erreur lors de la création du sac',
-    errorOpening = 'Erreur lors de l\'ouverture du sac'
+    errorOpening = 'Erreur lors de l\'ouverture du sac',
+    alreadyHaveBackpack = 'Vous avez déjà un sac à dos équipé ! Retirez-le avant d\'en créer un autre.',
+    itemBlacklisted = 'Cet item ne peut pas être mis dans le sac à dos'
 }
 
 -- ============================================
@@ -122,4 +153,14 @@ end
 -- Obtenir le type de base à partir du type équipé
 function Config.GetBaseType(equippedType)
     return equippedType:gsub('_equipped', '')
+end
+
+-- Vérifier si un item est blacklisté
+function Config.IsItemBlacklisted(itemName)
+    for _, blacklistedItem in ipairs(Config.BlacklistedItems) do
+        if itemName == blacklistedItem then
+            return true
+        end
+    end
+    return false
 end
